@@ -1,0 +1,152 @@
+---
+title: "Data 612 - Recommender Systems"
+author: "Habib Khan"
+date: "June 7, 2020"
+output: 
+  html_document:
+    toc: yes
+    toc_float: yes
+---
+
+# Introduction
+
+```{r, message=FALSE, warning=FALSE, echo=FALSE}
+knitr::include_graphics('P1.png')
+```
+
+
+```{r, message=FALSE, warning=FALSE}
+# reading libraries
+library(knitr)
+library(kableExtra)
+library(tidyverse)
+library(recommenderlab)
+library(dplyr)
+```
+
+This is my first assignment on recommender systems and for that purpose I will want to work on a small dataset for better exploration of results. I am going to create a dataset of 6 users and their ratings on 6 random movies. This recommender system will be recommending movies to the users. 
+
+# Creating data
+
+```{r}
+# Creating matrix of random data 
+data <- matrix(sample(1:6, 36, replace = TRUE), nrow=6)
+
+# creating user's name
+users <- c("Habib", "Bob", "Peter", "Smith", "Rebecca", "Steve")
+
+# creating movie's name
+movies <- c("V for Vendetta", "Lord of the Rings", "The Devil's Double", "National Treasure", "Mission Impossible III", "Wrong Turn")
+
+# Replacing users and movies' name in dataset
+rownames(data) <- users
+colnames(data) <- movies
+
+# Printing the data
+data %>% kable(caption="**Random Ratings**") %>% kable_styling()
+```
+
+# Creating training and test data
+
+```{r}
+# splitting the data
+split_data <- sample(1:length(data), 6, replace=FALSE)
+
+# Replacing 6 random values with NA
+# train data
+train_data <- data
+train_data[split_data] <- NA
+train_data %>% kable(caption="**Training data**") %>% kable_styling()
+
+# test data
+test_data <- data
+test_data[-split_data] <- NA
+test_data %>% kable(caption="**Testing data**") %>% kable_styling()
+```
+
+# Calculating raw average 
+
+```{r}
+raw_avg <- round(mean(train_data, na.rm=TRUE), 2)
+print(paste0("The raw average for every user-item combination is ", raw_avg))
+
+# Replacing user item raw average in dataset 
+raw_data <- matrix(replicate(36, raw_avg), 6)
+rownames(raw_data) <- rownames(train_data)
+colnames(raw_data) <- colnames(train_data)
+raw_data %>% kable(caption="Raw average") %>% kable_styling()
+```
+
+
+# Calculating RMSE for raw average training and testing data
+
+```{r}
+# RMSE for training dataset
+rmse_train <- round(RMSE(train_data, predicted = raw_data),2)
+print(paste0("The RMSE for training dataset is ", rmse_train))
+
+# RMSE for testing dataset
+rmse_test <- round(RMSE(test_data, predicted = raw_data),2)
+print(paste0("The RMSE for testing dataset is ", rmse_test),2)
+```
+
+# Calculating the bias for each user and item
+
+```{r}
+# calculating user bias
+user_bias <- round(rowMeans(train_data, na.rm=TRUE)-raw_avg, 2) 
+user_bias %>% kable(col.names = "User bias") %>% kable_styling()
+
+
+# calculating item bias
+item_bias <- round(colMeans(train_data, na.rm=TRUE)-raw_avg,2)
+item_bias %>% kable(col.names = "Item bias") %>% kable_styling()
+```
+
+
+# Calculating baseline predictors for every user-item combination
+
+```{r, warning=FALSE}
+bias <- apply(expand.grid((as_tibble(user_bias))[[1]], (as_tibble(item_bias))[[1]]), 1, sum)
+
+# calculating baseline predictors
+
+# adding bias values to raw average and creating matrix of 6 x 6
+base_pred <- replicate(36, raw_avg) + bias
+base_pred <- matrix(base_pred, 6)
+
+# adding column and row names to the matrix
+colnames(base_pred) <- colnames(train_data)
+rownames(base_pred) <- rownames(train_data)
+
+# printing matrix of baseline predictors for every user-item combination
+base_pred %>% kable(caption= "**Baseline predictors for every user-item combination**") %>% kable_styling()
+```
+
+
+# Calculating RMSE for baseline predictors for training and testing data
+
+
+```{r}
+# RMSE for baseline predictors for training dataset
+rmse_bp_train <- round(RMSE(train_data, predicted = base_pred),2)
+print(paste0("The RMSE for baseline predictors for training data is ", rmse_bp_train))
+
+# RMSE for baseline predictors for testing dataset
+rmse_bp_test <- round(RMSE(test_data, predicted = base_pred),2)
+print(paste0("The RMSE for baseline predictors for testing data is ", rmse_bp_test))
+```
+
+
+# Summary
+
+```{r}
+RMSE_C <- c("RMSE for Raw Avg - Training", "RMSE for Raw Avg - Testing", "RMSE for Baseline Predictors - Training", "RMSE for Baseline Predictors - Testing")
+RMSE_Values <- c(rmse_train, rmse_test, rmse_bp_train, rmse_test)
+
+# creating dataframe
+summary <- data.frame(RMSE_C, RMSE_Values)
+summary %>% kable() %>% kable_styling()
+```
+
+For training data, RMSE values dropped slightly which is good but with testing data it is same. 
